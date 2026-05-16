@@ -5,12 +5,13 @@
 import sys
 sys.path.insert(0, '../../Utilities/')
 
-import tensorflow as tf
-import numpy as np
-import matplotlib.pyplot as plt
-import scipy.io
+# conda install mkl-service
+import tensorflow as tf # tensorflow1.15
+import numpy as np  # numpy1.19.5
+import matplotlib.pyplot as plt # matplotlib3.3.4
+import scipy.io # scipy1.5.4
 from scipy.interpolate import griddata
-from pyDOE import lhs
+from pyDOE import lhs   # Latin Hypercube Sampling，即collocation points采样方法,pyDOE0.3.8
 from plotting import newfig, savefig
 from mpl_toolkits.mplot3d import Axes3D
 import time
@@ -23,36 +24,43 @@ tf.set_random_seed(1234)
 
 
 class PhysicsInformedNN:
-    # Initialize the class
+    # 构造训练数据
     def __init__(self, x0, u0, v0, tb, X_f, layers, lb, ub):
         
-        X0 = np.concatenate((x0, 0*x0), 1) # (x0, 0)
-        X_lb = np.concatenate((0*tb + lb[0], tb), 1) # (lb[0], tb)
-        X_ub = np.concatenate((0*tb + ub[0], tb), 1) # (ub[0], tb)
-        
+        X0 = np.concatenate((x0, 0*x0), 1)  # 构造初值点集(x0, 0)
+        X_lb = np.concatenate((0*tb + lb[0], tb), 1)    # 构造左边界点集(lb[0], tb)
+        X_ub = np.concatenate((0*tb + ub[0], tb), 1)    # 构造右边界点集(ub[0], tb)
+
+        # 定义左右边界条件
         self.lb = lb
         self.ub = ub
                
+        # 定义初值点
         self.x0 = X0[:,0:1]
         self.t0 = X0[:,1:2]
 
+        # 定义左边界点
         self.x_lb = X_lb[:,0:1]
         self.t_lb = X_lb[:,1:2]
 
+        # 定义右边界点
         self.x_ub = X_ub[:,0:1]
         self.t_ub = X_ub[:,1:2]
-        
+
+        # 定义随机采样数据点
         self.x_f = X_f[:,0:1]
         self.t_f = X_f[:,1:2]
-        
+
+        # 定义u0，v0
         self.u0 = u0
         self.v0 = v0
         
-        # Initialize NNs
+        # 创建神经网络，层数和节点，权重W，偏差b
         self.layers = layers
         self.weights, self.biases = self.initialize_NN(layers)
         
-        # tf Placeholders        
+        # 创建TensorFlow的输入接口，32位浮点数
+        # x，t后续分别求导需要分开单独定义
         self.x0_tf = tf.placeholder(tf.float32, shape=[None, self.x0.shape[1]])
         self.t0_tf = tf.placeholder(tf.float32, shape=[None, self.t0.shape[1]])
         
@@ -69,12 +77,16 @@ class PhysicsInformedNN:
         self.t_f_tf = tf.placeholder(tf.float32, shape=[None, self.t_f.shape[1]])
 
         # tf Graphs
+        # 定义初值约束
         self.u0_pred, self.v0_pred, _ , _ = self.net_uv(self.x0_tf, self.t0_tf)
+        # 定义左边界约束
         self.u_lb_pred, self.v_lb_pred, self.u_x_lb_pred, self.v_x_lb_pred = self.net_uv(self.x_lb_tf, self.t_lb_tf)
+        # 定义右边界约束
         self.u_ub_pred, self.v_ub_pred, self.u_x_ub_pred, self.v_x_ub_pred = self.net_uv(self.x_ub_tf, self.t_ub_tf)
+        # 定义u，v预测值
         self.f_u_pred, self.f_v_pred = self.net_f_uv(self.x_f_tf, self.t_f_tf)
         
-        # Loss
+        # Loss损失函数
         self.loss = tf.reduce_mean(tf.square(self.u0_tf - self.u0_pred)) + \
                     tf.reduce_mean(tf.square(self.v0_tf - self.v0_pred)) + \
                     tf.reduce_mean(tf.square(self.u_lb_pred - self.u_ub_pred)) + \
@@ -85,6 +97,7 @@ class PhysicsInformedNN:
                     tf.reduce_mean(tf.square(self.f_v_pred))
         
         # Optimizers
+        # 二阶优化，高精度调参
         self.optimizer = tf.contrib.opt.ScipyOptimizerInterface(self.loss, 
                                                                 method = 'L-BFGS-B', 
                                                                 options = {'maxiter': 50000,
@@ -93,13 +106,16 @@ class PhysicsInformedNN:
                                                                            'maxls': 50,
                                                                            'ftol' : 1.0 * np.finfo(float).eps})
     
+        # 初步粗调，快速收敛
         self.optimizer_Adam = tf.train.AdamOptimizer()
+        # 执行一次Adam参数更新
         self.train_op_Adam = self.optimizer_Adam.minimize(self.loss)
                 
-        # tf session
+        # tf session创建运行环境
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True,
                                                      log_device_placement=True))
         
+        # 变量初始化
         init = tf.global_variables_initializer()
         self.sess.run(init)
               
@@ -114,25 +130,30 @@ class PhysicsInformedNN:
             biases.append(b)        
         return weights, biases
         
+    # Xavier初始化神经网络权重W，决定神经网络是否能稳定训练
     def xavier_init(self, size):
         in_dim = size[0]
         out_dim = size[1]        
-        xavier_stddev = np.sqrt(2/(in_dim + out_dim))
-        return tf.Variable(tf.truncated_normal([in_dim, out_dim], stddev=xavier_stddev), dtype=tf.float32)
-    
+        xavier_stddev = np.sqrt(2/(in_dim + out_dim))   # 初始化标准差
+        return tf.Variable(tf.random.truncated_normal([in_dim, out_dim], stddev=xavier_stddev), dtype=tf.float32)  # 生成随机高斯矩阵
+        # TensorFlow中“truncated_normal”已禁用，更改为“random.truncated_normal”
+
+    # 神经网络如何计算
     def neural_net(self, X, weights, biases):
         num_layers = len(weights) + 1
         
+        # 输入标准化，统一映射到[-1,1]
         H = 2.0*(X - self.lb)/(self.ub - self.lb) - 1.0
         for l in range(0,num_layers-2):
             W = weights[l]
             b = biases[l]
-            H = tf.tanh(tf.add(tf.matmul(H, W), b))
+            H = tf.tanh(tf.add(tf.matmul(H, W), b)) # 激活函数tanh，H^(l+1)=tanh(H^(l)W^(l)+b^(l))
         W = weights[-1]
         b = biases[-1]
-        Y = tf.add(tf.matmul(H, W), b)
+        Y = tf.add(tf.matmul(H, W), b)  # 输出层
         return Y
     
+    # 自动微分求PDE
     def net_uv(self, x, t):
         X = tf.concat([x,t],1)
         
@@ -140,6 +161,7 @@ class PhysicsInformedNN:
         u = uv[:,0:1]
         v = uv[:,1:2]
         
+        # 自动微分，输出一个列表，[0]用来取出列表第一个数
         u_x = tf.gradients(u, x)[0]
         v_x = tf.gradients(v, x)[0]
 
@@ -162,17 +184,19 @@ class PhysicsInformedNN:
     def callback(self, loss):
         print('Loss:', loss)
         
+    # nIter为训练轮数
     def train(self, nIter):
         
+        # 给网络为数据
         tf_dict = {self.x0_tf: self.x0, self.t0_tf: self.t0,
                    self.u0_tf: self.u0, self.v0_tf: self.v0,
                    self.x_lb_tf: self.x_lb, self.t_lb_tf: self.t_lb,
                    self.x_ub_tf: self.x_ub, self.t_ub_tf: self.t_ub,
                    self.x_f_tf: self.x_f, self.t_f_tf: self.t_f}
-        
-        start_time = time.time()
+
+        start_time = time.time()    # 用于计时
         for it in range(nIter):
-            self.sess.run(self.train_op_Adam, tf_dict)
+            self.sess.run(self.train_op_Adam, tf_dict)  # 执行一次Adam更新
             
             # Print
             if it % 10 == 0:
@@ -207,7 +231,7 @@ if __name__ == "__main__":
      
     noise = 0.0        
     
-    # Doman bounds
+    # Domain bounds
     lb = np.array([-5.0, 0.0])
     ub = np.array([5.0, np.pi/2])
 
@@ -234,11 +258,13 @@ if __name__ == "__main__":
     
     ###########################
     
+    # 构造训练集
     idx_x = np.random.choice(x.shape[0], N0, replace=False)
     x0 = x[idx_x,:]
     u0 = Exact_u[idx_x,0:1]
     v0 = Exact_v[idx_x,0:1]
     
+    # 用于周期边界条件
     idx_t = np.random.choice(t.shape[0], N_b, replace=False)
     tb = t[idx_t,:]
     
@@ -247,7 +273,7 @@ if __name__ == "__main__":
     model = PhysicsInformedNN(x0, u0, v0, tb, X_f, layers, lb, ub)
              
     start_time = time.time()                
-    model.train(50000)
+    model.train(50000)    # 训练轮次
     elapsed = time.time() - start_time                
     print('Training time: %.4f' % (elapsed))
     
