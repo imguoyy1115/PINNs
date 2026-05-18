@@ -41,10 +41,3 @@ os.environ["PATH"] = "/usr/local/miniconda/bin:" + os.environ["PATH"]
 !/usr/local/miniconda/envs/PINNs/bin/pip install IPython
 
 !/usr/local/miniconda/envs/PINNs/bin/pip install pyDOE==0.3.8
-
-!find /content/PINNs -name "NLS.mat"
-
-import os
-print(os.getcwd())
-
-!/usr/local/miniconda/envs/PINNs/bin/python /content/PINNs/main/continuous_time_inference\ \(Schrodinger\)/Colab/Schrodinger.py
