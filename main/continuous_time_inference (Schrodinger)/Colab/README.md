@@ -39,3 +39,10 @@ os.environ["PATH"] = "/usr/local/miniconda/bin:" + os.environ["PATH"]
 ```python
 !/usr/local/miniconda/envs/PINNs/bin/python /content/PINNs/main/continuous_time_inference\ \(Schrodinger\)/Colab/Schrodinger.py
 ```
+
+## 四、最终训练结果
+```python
+Error u: 1.520586e-03
+Error v: 2.003712e-03
+Error h: 1.106604e-03
+```
