@@ -13,6 +13,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.io
 from scipy.interpolate import griddata
+
+import sys
+sys.path.insert(0, '/content/PINNs/Utilities/')
 from plotting import newfig, savefig
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.gridspec as gridspec
@@ -156,7 +159,7 @@ if __name__ == "__main__":
     N_u = 2000
     layers = [2, 20, 20, 20, 20, 20, 20, 20, 20, 1]
 
-    data = scipy.io.loadmat('../Data/burgers_shock.mat')
+    data = scipy.io.loadmat('/content/PINNs/appendix/Data/burgers_shock.mat')
 
     t = data['t'].flatten()[:, None]
     x = data['x'].flatten()[:, None]
@@ -200,6 +203,14 @@ if __name__ == "__main__":
     print('Error l1: %.5f%%' % (error_lambda_1))
     print('Error l2: %.5f%%' % (error_lambda_2))
 
+  # 保存 clean data 结果
+    clean_results = {
+        'error_u': error_u,
+        'error_l1': error_lambda_1,
+        'error_l2': error_lambda_2,
+        'lambda_1': lambda_1_value[0],
+        'lambda_2': lambda_2_value[0]
+}
     ######################################################################
     ########################### Noisy Data ###############################
     ######################################################################
@@ -221,6 +232,35 @@ if __name__ == "__main__":
     print('Error lambda_1: %f%%' % (error_lambda_1_noisy))
     print('Error lambda_2: %f%%' % (error_lambda_2_noisy))
 
+    # 保存 noisy data 结果
+    noisy_results = {
+        'error_l1': error_lambda_1_noisy,
+        'error_l2': error_lambda_2_noisy,
+        'lambda_1': lambda_1_value_noisy[0],
+        'lambda_2': lambda_2_value_noisy[0]
+}
+    ######################################################################
+    ############################ Final Summary ############################
+    ######################################################################
+
+    print("\n" + "=" * 60)
+    print("FINAL SUMMARY")
+    print("=" * 60)
+
+    print("\n[Clean Data : noise = 0.0]")
+    print("Error u        : %.6e" % clean_results['error_u'])
+    print("Error lambda_1 : %.5f%%" % clean_results['error_l1'])
+    print("Error lambda_2 : %.5f%%" % clean_results['error_l2'])
+    print("Lambda_1       : %.6f" % clean_results['lambda_1'])
+    print("Lambda_2       : %.8f" % clean_results['lambda_2'])
+
+    print("\n[Noisy Data : noise = 0.01]")
+    print("Error lambda_1 : %.5f%%" % noisy_results['error_l1'])
+    print("Error lambda_2 : %.5f%%" % noisy_results['error_l2'])
+    print("Lambda_1       : %.6f" % noisy_results['lambda_1'])
+    print("Lambda_2       : %.8f" % noisy_results['lambda_2'])
+
+    print("=" * 60)
     ######################################################################
     ############################# Plotting ###############################
     ######################################################################
