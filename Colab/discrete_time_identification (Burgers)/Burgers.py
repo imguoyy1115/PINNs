@@ -2,14 +2,14 @@
 @author: Maziar Raissi
 """
 
-import sys
-sys.path.insert(0, '../../Utilities/')
-
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 import time
 import scipy.io
+
+import sys
+sys.path.insert(0, '/content/PINNs/Utilities/')
 from plotting import newfig, savefig
 import matplotlib.gridspec as gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -43,7 +43,7 @@ class PhysicsInformedNN:
         self.lambda_2 = tf.Variable([-6.0], dtype=tf.float32)       
         
         # Load IRK weights
-        tmp = np.float32(np.loadtxt('../../Utilities/IRK_weights/Butcher_IRK%d.txt' % (q), ndmin = 2))
+        tmp = np.float32(np.loadtxt('/content/PINNs/Utilities/IRK_weights/Butcher_IRK%d.txt' % (q), ndmin = 2))
         weights =  np.reshape(tmp[0:q**2+q], (q+1,q))     
         self.IRK_alpha = weights[0:-1,:]
         self.IRK_beta = weights[-1:,:]        
@@ -181,7 +181,7 @@ if __name__ == "__main__":
     N0 = 199
     N1 = 201
     
-    data = scipy.io.loadmat('../Data/burgers_shock.mat')
+    data = scipy.io.loadmat('/content/PINNs/appendix/Data/burgers_shock.mat')
     
     t_star = data['t'].flatten()[:,None]
     x_star = data['x'].flatten()[:,None]
@@ -229,7 +229,13 @@ if __name__ == "__main__":
     print('Error lambda_1: %f%%' % (error_lambda_1))
     print('Error lambda_2: %f%%' % (error_lambda_2))
     
-    
+    # 保存 clean data 结果
+    clean_results = {
+        'error_l1': error_lambda_1,
+        'error_l2': error_lambda_2,
+        'lambda_1': lambda_1_value[0],
+        'lambda_2': lambda_2_value[0]
+    }
     ######################################################################
     ########################### Noisy Data ###############################
     ######################################################################
@@ -254,6 +260,35 @@ if __name__ == "__main__":
     print('Error lambda_1: %f%%' % (error_lambda_1_noisy))
     print('Error lambda_2: %f%%' % (error_lambda_2_noisy))
     
+    # 保存 noisy data 结果
+    noisy_results = {
+        'error_l1': error_lambda_1_noisy,
+       'error_l2': error_lambda_2_noisy,
+        'lambda_1': lambda_1_value_noisy[0],
+       'lambda_2': lambda_2_value_noisy[0]
+    }
+
+    ######################################################################
+    ############################ Final Summary ###########################
+    ######################################################################
+
+    print("\n" + "="*60)
+    print("FINAL SUMMARY")
+    print("="*60)
+
+    print("\n[Clean Data : noise = 0.0]")
+    print("Error lambda_1 : %.6f%%" % clean_results['error_l1'])
+    print("Error lambda_2 : %.6f%%" % clean_results['error_l2'])
+    print("Lambda_1       : %.6f" % clean_results['lambda_1'])
+    print("Lambda_2       : %.8f" % clean_results['lambda_2'])
+
+    print("\n[Noisy Data : noise = 0.01]")
+    print("Error lambda_1 : %.6f%%" % noisy_results['error_l1'])
+    print("Error lambda_2 : %.6f%%" % noisy_results['error_l2'])
+    print("Lambda_1       : %.6f" % noisy_results['lambda_1'])
+    print("Lambda_2       : %.8f" % noisy_results['lambda_2'])
+
+    print("="*60)    
     ######################################################################
     ############################# Plotting ###############################
     ######################################################################
