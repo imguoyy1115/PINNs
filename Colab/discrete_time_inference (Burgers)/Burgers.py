@@ -2,14 +2,14 @@
 @author: Maziar Raissi
 """
 
-import sys
-sys.path.insert(0, '../../Utilities/')
-
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 import time
 import scipy.io
+
+import sys
+sys.path.insert(0, '/content/PINNs/Utilities/')
 from plotting import newfig, savefig
 import matplotlib.gridspec as gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -41,7 +41,7 @@ class PhysicsInformedNN:
         self.weights, self.biases = self.initialize_NN(layers)
         
         # Load implicit Runge–Kutta weights
-        tmp = np.float32(np.loadtxt('../../Utilities/IRK_weights/Butcher_IRK%d.txt' % (q), ndmin = 2))
+        tmp = np.float32(np.loadtxt('/content/PINNs/Utilities/IRK_weights/Butcher_IRK%d.txt' % (q), ndmin = 2))
         self.IRK_weights = np.reshape(tmp[0:q**2+q], (q+1,q))
         self.IRK_times = tmp[q**2+q:]
         
@@ -171,7 +171,7 @@ if __name__ == "__main__":
     # 采样点的个数
     N = 250
     
-    data = scipy.io.loadmat('../Data/burgers_shock.mat')
+    data = scipy.io.loadmat('/content/PINNs/appendix/Data/burgers_shock.mat')
     
     t = data['t'].flatten()[:,None] # T x 1
     x = data['x'].flatten()[:,None] # N x 1
